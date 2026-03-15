@@ -1,0 +1,32 @@
+name: Build and Deploy to Azure Container Registry
+
+on:
+  push:
+    branches:
+      - master
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Log into Azure Container Registry
+        uses: azure/docker-login@v1
+        with:
+          login-server: quantdeskacrswe9918.azurecr.io
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Build and Push Backend Image
+        run: |
+          docker build -t quantdeskacrswe9918.azurecr.io/quantdesk-api:latest ./backend
+          docker push quantdeskacrswe9918.azurecr.io/quantdesk-api:latest
+
+      - name: Build and Push Frontend Image
+        run: |
+          docker build -t quantdeskacrswe9918.azurecr.io/quantdesk-ui:latest ./frontend
+          docker push quantdeskacrswe9918.azurecr.io/quantdesk-ui:latest
