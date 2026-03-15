@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-trading-dark text-trading-text;
+  }
+}
+
+/* Custom Scrollbar for Trading UI */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: theme('colors.trading.dark');
+}
+
+::-webkit-scrollbar-thumb {
+  background: theme('colors.trading.border');
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: theme('colors.trading.muted');
+}
