@@ -6,11 +6,28 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const navigate = useNavigate();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: implement real login
-    console.log('Login with:', email, password);
-    navigate('/dashboard');
+    try {
+      const response = await fetch('http://localhost:8000/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      
+      if (!response.ok) {
+        const err = await response.json();
+        alert(err.detail || 'Login failed');
+        return;
+      }
+
+      const data = await response.json();
+      localStorage.setItem('token', data.access_token);
+      navigate('/dashboard');
+    } catch (error) {
+      console.error('Login error:', error);
+      alert('Could not connect to the server.');
+    }
   };
 
   return (

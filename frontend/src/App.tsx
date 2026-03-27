@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import AuthGuard from './components/AuthGuard';
 
 import Dashboard from './pages/Dashboard';
 import Trade from './pages/Trade';
@@ -10,6 +11,29 @@ import Wallet from './pages/Wallet';
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
   const isActive = (path: string) => location.pathname.startsWith(path);
+  const [balance, setBalance] = React.useState<string>('0.00');
+
+  React.useEffect(() => {
+    const fetchWallet = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      try {
+        const resp = await fetch('http://localhost:8000/api/wallet/', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          const usd = data.find((w: any) => w.currency === 'USD');
+          if (usd) {
+            setBalance(Number(usd.balance).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+          }
+        }
+      } catch (e) {
+        console.error("Failed to fetch wallet", e);
+      }
+    };
+    fetchWallet();
+  }, [location.pathname]);
 
   return (
     <div className="flex h-screen bg-trading-dark text-trading-text font-sans selection:bg-trading-blue selection:text-white">
@@ -29,9 +53,16 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
         </nav>
         
         <div className="mt-auto w-full px-3">
-           <Link to="/login" className="w-10 h-10 rounded-lg text-trading-muted hover:bg-trading-border/50 hover:text-trading-red flex items-center justify-center cursor-pointer transition-colors" title="Logout">
+           <button 
+             onClick={() => {
+               localStorage.removeItem('token');
+               window.location.href = '/login';
+             }}
+             className="w-10 h-10 rounded-lg text-trading-muted hover:bg-trading-border/50 hover:text-trading-red flex items-center justify-center cursor-pointer transition-colors" 
+             title="Logout"
+           >
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-           </Link>
+           </button>
         </div>
       </aside>
 
@@ -55,7 +86,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
             
             <div className="flex flex-col items-end justify-center">
               <span className="text-xs text-trading-muted uppercase">Available Balance</span>
-              <span className="text-sm font-mono text-white font-medium">$100,000.00</span>
+              <span className="text-sm font-mono text-white font-medium">${balance}</span>
             </div>
             
             <div className="w-8 h-8 rounded border border-trading-border bg-trading-dark flex items-center justify-center overflow-hidden ml-2 cursor-pointer outline outline-2 outline-transparent hover:outline-trading-blue/50 transition-all">
@@ -79,11 +110,11 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         
-        {/* Protected Routes (mocked) */}
-        <Route path="/" element={<AppLayout><Navigate to="/dashboard" replace /></AppLayout>} />
-        <Route path="/dashboard" element={<AppLayout><Dashboard /></AppLayout>} />
-        <Route path="/trade" element={<AppLayout><Trade /></AppLayout>} />
-        <Route path="/wallet" element={<AppLayout><Wallet /></AppLayout>} />
+        {/* Protected Routes */}
+        <Route path="/" element={<AuthGuard><AppLayout><Navigate to="/dashboard" replace /></AppLayout></AuthGuard>} />
+        <Route path="/dashboard" element={<AuthGuard><AppLayout><Dashboard /></AppLayout></AuthGuard>} />
+        <Route path="/trade" element={<AuthGuard><AppLayout><Trade /></AppLayout></AuthGuard>} />
+        <Route path="/wallet" element={<AuthGuard><AppLayout><Wallet /></AppLayout></AuthGuard>} />
       </Routes>
     </Router>
   );

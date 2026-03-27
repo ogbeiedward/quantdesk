@@ -13,10 +13,14 @@ async def lifespan(app: FastAPI):
     # Startup
     await init_db()
     # Start Binance WebSocket stream in background
-    task = asyncio.create_task(stream_binance_prices())
+    binance_task = asyncio.create_task(stream_binance_prices())
+    # Start SL/TP monitor task
+    from app.services.trading_engine import run_market_monitor
+    monitor_task = asyncio.create_task(run_market_monitor())
     yield
     # Shutdown
-    task.cancel()
+    binance_task.cancel()
+    monitor_task.cancel()
 
 
 app = FastAPI(
@@ -29,7 +33,7 @@ app = FastAPI(
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000", "*"],
+    allow_origins=["http://localhost:5173", "http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

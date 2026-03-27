@@ -2,7 +2,7 @@
 import uuid
 from datetime import datetime, timezone
 from sqlalchemy import (
-    Column, String, Float, Boolean, DateTime, ForeignKey, Text, Enum, Integer, JSON
+    Column, String, Float, Boolean, DateTime, ForeignKey, Text, Enum, Integer, JSON, Numeric
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
@@ -60,7 +60,7 @@ class Wallet(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     currency = Column(String(10), nullable=False)  # USD, BTC, ETH, EUR
-    balance = Column(Float, default=0.0)
+    balance = Column(Numeric(20, 8), default=0.0)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="wallets")
@@ -73,8 +73,8 @@ class Transaction(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     wallet_id = Column(UUID(as_uuid=True), ForeignKey("wallets.id"), nullable=False)
     type = Column(String(20), nullable=False)  # DEPOSIT, WITHDRAWAL, TRADE, FEE
-    amount = Column(Float, nullable=False)
-    balance_after = Column(Float, nullable=False)
+    amount = Column(Numeric(20, 8), nullable=False)
+    balance_after = Column(Numeric(20, 8), nullable=False)
     description = Column(Text, default="")
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
@@ -89,15 +89,15 @@ class Order(Base):
     symbol = Column(String(20), nullable=False)
     side = Column(String(10), nullable=False)  # BUY / SELL
     order_type = Column(String(20), nullable=False)  # MARKET / LIMIT / STOP
-    quantity = Column(Float, nullable=False)
-    price = Column(Float, nullable=True)  # None for market orders
-    filled_price = Column(Float, nullable=True)
-    stop_loss = Column(Float, nullable=True)
-    take_profit = Column(Float, nullable=True)
+    quantity = Column(Numeric(20, 8), nullable=False)
+    price = Column(Numeric(20, 8), nullable=True)  # None for market orders
+    filled_price = Column(Numeric(20, 8), nullable=True)
+    stop_loss = Column(Numeric(20, 8), nullable=True)
+    take_profit = Column(Numeric(20, 8), nullable=True)
     status = Column(String(20), default=OrderStatus.PENDING.value)
-    leverage = Column(Float, default=1.0)
-    fee = Column(Float, default=0.0)
-    slippage = Column(Float, default=0.0)
+    leverage = Column(Numeric(20, 8), default=1.0)
+    fee = Column(Numeric(20, 8), default=0.0)
+    slippage = Column(Numeric(20, 8), default=0.0)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     filled_at = Column(DateTime(timezone=True), nullable=True)
 
@@ -111,14 +111,14 @@ class Position(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     symbol = Column(String(20), nullable=False)
     side = Column(String(10), nullable=False)
-    quantity = Column(Float, nullable=False)
-    entry_price = Column(Float, nullable=False)
-    current_price = Column(Float, nullable=True)
-    stop_loss = Column(Float, nullable=True)
-    take_profit = Column(Float, nullable=True)
-    leverage = Column(Float, default=1.0)
-    unrealized_pnl = Column(Float, default=0.0)
-    realized_pnl = Column(Float, default=0.0)
+    quantity = Column(Numeric(20, 8), nullable=False)
+    entry_price = Column(Numeric(20, 8), nullable=False)
+    current_price = Column(Numeric(20, 8), nullable=True)
+    stop_loss = Column(Numeric(20, 8), nullable=True)
+    take_profit = Column(Numeric(20, 8), nullable=True)
+    leverage = Column(Numeric(20, 8), default=1.0)
+    unrealized_pnl = Column(Numeric(20, 8), default=0.0)
+    realized_pnl = Column(Numeric(20, 8), default=0.0)
     is_open = Column(Boolean, default=True)
     opened_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     closed_at = Column(DateTime(timezone=True), nullable=True)

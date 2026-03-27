@@ -71,11 +71,62 @@ async def execute_limit_order(db: AsyncSession, order: Order, market_price: floa
     return order
 
 
+async def run_market_monitor():
+    """Background task to monitor all open positions for SL/TP triggers."""
+    from app.core.database import async_session
+    import asyncio
+    while True:
+        try:
+            async with async_session() as db:
+                await check_all_positions(db)
+        except Exception:
+            # In production, use proper logging
+            pass
+        await asyncio.sleep(5)
+
+
+async def check_all_positions(db: AsyncSession):
+    """Monitor all open positions across all users."""
+    result = await db.execute(select(Position).where(Position.is_open.is_(True)))
+    positions = result.scalars().all()
+    for pos in positions:
+        price = get_current_price(pos.symbol)
+        if price is None:
+            continue
+        
+        # Update current price and PnL
+        pos.current_price = price
+        if pos.side == "BUY":
+            pos.unrealized_pnl = (price - pos.entry_price) * pos.quantity * pos.leverage
+        else:
+            pos.unrealized_pnl = (pos.entry_price - price) * pos.quantity * pos.leverage
+
+        # Check triggers
+        should_close = False
+        if pos.stop_loss:
+            if (pos.side == "BUY" and price <= pos.stop_loss) or (pos.side == "SELL" and price >= pos.stop_loss):
+                should_close = True
+        if pos.take_profit:
+            if (pos.side == "BUY" and price >= pos.take_profit) or (pos.side == "SELL" and price <= pos.take_profit):
+                should_close = True
+        
+        # Check liquidation
+        if pos.leverage > 1:
+            margin = (pos.entry_price * pos.quantity) / pos.leverage
+            if pos.unrealized_pnl <= -margin * 0.8:
+                should_close = True
+
+        if should_close:
+            await _close_position(db, pos, price)
+    
+    await db.commit()
+
+
 async def check_stop_loss_take_profit(db: AsyncSession, user_id: UUID):
     """Check open positions for stop loss / take profit triggers."""
     result = await db.execute(
         select(Position).where(
-            and_(Position.user_id == user_id, Position.is_open == True)
+            and_(Position.user_id == user_id, Position.is_open.is_(True))
         )
     )
     positions = result.scalars().all()
@@ -118,7 +169,7 @@ async def close_position_by_id(db: AsyncSession, user_id: UUID, position_id: UUI
     """Manually close a position."""
     result = await db.execute(
         select(Position).where(
-            and_(Position.id == position_id, Position.user_id == user_id, Position.is_open == True)
+            and_(Position.id == position_id, Position.user_id == user_id, Position.is_open.is_(True))
         )
     )
     pos = result.scalar_one_or_none()
@@ -152,7 +203,7 @@ async def _close_position(db: AsyncSession, pos: Position, exit_price: float):
     usd_wallet = await _get_wallet(db, pos.user_id, "USD")
     if usd_wallet:
         # Return initial margin + PnL
-        margin = pos.entry_price * pos.quantity
+        margin = (pos.entry_price * pos.quantity) / pos.leverage
         usd_wallet.balance += margin + pnl
         await _record_transaction(db, usd_wallet, "TRADE", pnl,
                                   f"CLOSE {pos.side} {pos.quantity} {pos.symbol} PnL: {pnl:.2f}")
@@ -167,7 +218,7 @@ async def _update_position(db: AsyncSession, order: Order):
                 Position.user_id == order.user_id,
                 Position.symbol == order.symbol,
                 Position.side == order.side,
-                Position.is_open == True,
+                Position.is_open.is_(True),
             )
         )
     )
@@ -199,7 +250,7 @@ async def _update_position(db: AsyncSession, order: Order):
 
 async def _get_wallet(db: AsyncSession, user_id: UUID, currency: str) -> Optional[Wallet]:
     result = await db.execute(
-        select(Wallet).where(and_(Wallet.user_id == user_id, Wallet.currency == currency))
+        select(Wallet).where(and_(Wallet.user_id == user_id, Wallet.currency == currency)).with_for_update()
     )
     return result.scalar_one_or_none()
 
