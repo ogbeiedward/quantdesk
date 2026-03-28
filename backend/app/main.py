@@ -30,14 +30,20 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+from app.core.config import get_settings
+
+settings = get_settings()
+cors_list = [x.strip() for x in settings.CORS_ORIGINS.split(",")] if settings.CORS_ORIGINS else ["*"]
+
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=cors_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 # Routers
 app.include_router(auth.router)
