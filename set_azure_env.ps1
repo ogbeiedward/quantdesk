@@ -10,9 +10,10 @@ az webapp config appsettings set --name $app --resource-group $rg --settings `
   REDIS_URL="redis://redis:6379/0" `
   SECRET_KEY="change-me-in-production-123!" `
   CORS_ORIGINS="*" `
-  VITE_API_URL="https://$app.azurewebsites.net" `
-  WEBSITES_PORT="5173" `
+  VITE_API_URL="/api" `
+  WEBSITES_PORT="80" `
   ALPHA_VANTAGE_API_KEY="YOUR_KEY_HERE"
+
 
 
 Write-Host "Environment variables set successfully."

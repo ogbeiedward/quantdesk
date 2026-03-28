@@ -38,7 +38,9 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://quantdesk:quantdesk@quantdesk-db:5432/quantdesk
       REDIS_URL: redis://quantdesk-redis:6379/0
-      SECRET_KEY: change-me-in-production
+      SECRET_KEY: local-dev-secret-123
+      CORS_ORIGINS: "*"
+      ALPHA_VANTAGE_API_KEY: ${ALPHA_VANTAGE_API_KEY:-demo}
     volumes:
       - ./backend:/app
 
@@ -46,6 +48,8 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        VITE_API_URL: http://localhost:8000
     container_name: quantdesk-ui
     networks:
       - quantdesk-net
@@ -53,6 +57,8 @@ services:
       - "5173:5173"
     depends_on:
       - backend
+    environment:
+      VITE_API_URL: http://localhost:8000
     volumes:
       - ./frontend:/app
       - /app/node_modules
