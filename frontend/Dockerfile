@@ -1,16 +1,23 @@
-FROM node:18-alpine
-
+# Build stage
+FROM node:18-alpine AS build
 WORKDIR /app
 
-# Install dependencies first for better caching
+# Handle build-time environment variables
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
+
 COPY package*.json ./
 RUN npm install
-
-# Copy application code
 COPY . .
+# Build the production assets
+RUN npm run build
 
-# Expose Vite's default development port
+
+# Final stage - use a simple node server to serve the static files
+FROM node:18-alpine
+WORKDIR /app
+RUN npm install -g serve
+COPY --from=build /app/dist ./dist
 EXPOSE 5173
-
-# Run the dev server. Since host: true is in vite.config.ts, it will bind to 0.0.0.0
-CMD ["npm", "run", "dev"]
+# Serve the dist folder on port 5173
+CMD ["serve", "-s", "dist", "-l", "5173"]
