@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     NEWS_API_KEY: str = ""
     # Demo
     DEMO_BALANCE: float = 100000.0
+    # CORS
+    CORS_ORIGINS: list[str] = ["http://localhost:5173", "http://localhost:3000"]
 
     class Config:
         env_file = ".env"

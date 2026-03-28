@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, Link, useLocation } f
 import Login from './pages/Login';
 import Register from './pages/Register';
 import AuthGuard from './components/AuthGuard';
-
+import { API_BASE_URL } from './api/config';
 import Dashboard from './pages/Dashboard';
 import Trade from './pages/Trade';
 import Wallet from './pages/Wallet';
@@ -18,7 +18,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
       const token = localStorage.getItem('token');
       if (!token) return;
       try {
-        const resp = await fetch('http://localhost:8000/api/wallet/', {
+        const resp = await fetch(`${API_BASE_URL}/api/wallet/`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (resp.ok) {
