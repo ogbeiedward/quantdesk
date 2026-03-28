@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: quantdesk-api
+    env: docker
+    dockerContext: .
+    dockerfilePath: backend/Dockerfile
+    plan: free
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALPHA_VANTAGE_API_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        value: "*"
