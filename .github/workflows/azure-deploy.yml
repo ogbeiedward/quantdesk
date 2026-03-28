@@ -26,7 +26,6 @@ jobs:
           username: ${{ secrets.ACR_USERNAME }}
           password: ${{ secrets.ACR_PASSWORD }}
 
-
       - name: Build and Push Backend Image
         run: |
           docker build -t quantdeskacrswe9918.azurecr.io/quantdesk-api:latest ./backend
@@ -34,13 +33,17 @@ jobs:
 
       - name: Build and Push Frontend Image
         run: |
-          # Passing the production API URL at build time so Vite can embed it
+          # Passing /api as the relative URL so Nginx can proxy it
           docker build \
-            --build-arg VITE_API_URL=https://quantdesk-app9918.azurewebsites.net \
+            --build-arg VITE_API_URL=/api \
             -t quantdeskacrswe9918.azurecr.io/quantdesk-ui:latest ./frontend
           docker push quantdeskacrswe9918.azurecr.io/quantdesk-ui:latest
+
+      - name: Build and Push Nginx Proxy Image
+        run: |
+          docker build -t quantdeskacrswe9918.azurecr.io/quantdesk-proxy:latest ./nginx
+          docker push quantdeskacrswe9918.azurecr.io/quantdesk-proxy:latest
 
       - name: Trigger Azure Web App Deployment
         run: |
           curl -X POST "${{ secrets.AZURE_WEBAPP_WEBHOOK_URL }}"
-

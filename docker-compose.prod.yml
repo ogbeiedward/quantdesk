@@ -34,15 +34,26 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-*}
       ALPHA_VANTAGE_API_KEY: ${ALPHA_VANTAGE_API_KEY}
 
+  nginx:
+    image: quantdeskacrswe9918.azurecr.io/quantdesk-proxy:latest
+    container_name: quantdesk-proxy
+    ports:
+      - "80:80"
+    depends_on:
+      - frontend
+      - backend
+
   frontend:
     image: quantdeskacrswe9918.azurecr.io/quantdesk-ui:latest
     container_name: quantdesk-ui
-    ports:
-      - "80:5173"
+    # Internal only
+    expose:
+      - "5173"
     depends_on:
       - backend
     environment:
-      VITE_API_URL: ${VITE_API_URL}
+      VITE_API_URL: /api
+
 
 
 volumes:
