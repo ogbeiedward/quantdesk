@@ -5,9 +5,11 @@ services:
     image: postgres:16-alpine
     container_name: quantdesk-db
     environment:
-      POSTGRES_USER: quantdesk
-      POSTGRES_PASSWORD: quantdesk
-      POSTGRES_DB: quantdesk
+      POSTGRES_USER: ${POSTGRES_USER:-quantdesk}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-quantdesk}
+      POSTGRES_DB: ${POSTGRES_DB:-quantdesk}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
 
@@ -26,10 +28,11 @@ services:
       - postgres
       - redis
     environment:
-      DATABASE_URL: postgresql+asyncpg://quantdesk:quantdesk@postgres:5432/quantdesk
-      REDIS_URL: redis://redis:6379/0
-      SECRET_KEY: change-me-in-production
-      CORS_ORIGINS: "*"
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      SECRET_KEY: ${SECRET_KEY}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      ALPHA_VANTAGE_API_KEY: ${ALPHA_VANTAGE_API_KEY}
 
   frontend:
     image: quantdeskacrswe9918.azurecr.io/quantdesk-ui:latest
@@ -38,3 +41,9 @@ services:
       - "5173:5173"
     depends_on:
       - backend
+    environment:
+      VITE_API_URL: ${VITE_API_URL}
+
+volumes:
+  postgres_data:
+
