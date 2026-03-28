@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.database import init_db
-from app.routers import auth, users, wallet, trading, market, watchlist, strategies, admin, analytics
+from app.routers import auth, users, wallet, trading, market, watchlist, strategies, admin, analytics, narrative, otc
 from app.services.websocket_service import manager, stream_binance_prices
 
 

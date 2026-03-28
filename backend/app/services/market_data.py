@@ -157,3 +157,195 @@ def get_current_price(symbol: str) -> Optional[float]:
     if symbol in crypto:
         return crypto[symbol]["price"]
     return None
+
+
+# ─── Smart Money & Institutional Indicators ───────────────────
+
+BINANCE_FUTURES_BASE = "https://fapi.binance.com/fapi/v1"
+
+
+async def get_funding_rates() -> List[dict]:
+    """Fetch current funding rates from Binance Futures (free, no auth)."""
+    async with httpx.AsyncClient(timeout=10) as client:
+        try:
+            resp = await client.get(f"{BINANCE_FUTURES_BASE}/premiumIndex")
+            data = resp.json()
+            results = []
+            target_symbols = {"BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT", "AVAXUSDT"}
+            for item in data:
+                if item.get("symbol") in target_symbols:
+                    funding_rate = float(item.get("lastFundingRate", 0))
+                    results.append({
+                        "symbol": item["symbol"],
+                        "funding_rate": round(funding_rate * 100, 4),  # as percentage
+                        "funding_rate_annualized": round(funding_rate * 3 * 365 * 100, 2),
+                        "mark_price": float(item.get("markPrice", 0)),
+                        "index_price": float(item.get("indexPrice", 0)),
+                        "sentiment": "Bearish (Longs Paying)" if funding_rate > 0.01 else
+                                     "Bullish (Shorts Paying)" if funding_rate < -0.01 else "Neutral",
+                    })
+            return sorted(results, key=lambda x: abs(x["funding_rate"]), reverse=True)
+        except Exception:
+            return []
+
+
+async def get_open_interest() -> List[dict]:
+    """Fetch open interest from Binance Futures (free, no auth)."""
+    async with httpx.AsyncClient(timeout=10) as client:
+        target_symbols = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT"]
+        results = []
+        for sym in target_symbols:
+            try:
+                resp = await client.get(
+                    f"{BINANCE_FUTURES_BASE}/openInterest",
+                    params={"symbol": sym}
+                )
+                data = resp.json()
+                oi = float(data.get("openInterest", 0))
+                price = get_current_price(sym) or 1
+                results.append({
+                    "symbol": sym,
+                    "open_interest_contracts": round(oi, 2),
+                    "open_interest_usd": round(oi * price, 2),
+                })
+            except Exception:
+                continue
+        return results
+
+
+async def get_fear_and_greed() -> dict:
+    """Fetch Crypto Fear & Greed Index from alternative.me (free)."""
+    async with httpx.AsyncClient(timeout=10) as client:
+        try:
+            resp = await client.get("https://api.alternative.me/fng/?limit=30")
+            data = resp.json().get("data", [])
+            if not data:
+                return {}
+            current = data[0]
+            history = [{"date": d["timestamp"], "value": int(d["value"]), "label": d["value_classification"]}
+                       for d in data]
+            # Trend: is fear/greed increasing or decreasing?
+            recent_avg = sum(int(d["value"]) for d in data[:7]) / 7
+            older_avg = sum(int(d["value"]) for d in data[7:14]) / 7
+            trend = "Improving" if recent_avg > older_avg else "Deteriorating"
+
+            return {
+                "value": int(current["value"]),
+                "label": current["value_classification"],
+                "trend": trend,
+                "history": history[:30],
+                "interpretation": (
+                    "Extreme Fear — potential buying opportunity" if int(current["value"]) < 25 else
+                    "Fear — market is nervous" if int(current["value"]) < 45 else
+                    "Neutral" if int(current["value"]) < 55 else
+                    "Greed — consider taking profits" if int(current["value"]) < 75 else
+                    "Extreme Greed — high risk of correction"
+                )
+            }
+        except Exception:
+            return {"value": 50, "label": "Neutral", "trend": "Unknown", "history": []}
+
+
+async def get_long_short_ratio() -> List[dict]:
+    """Fetch long/short ratio from Binance Futures accounts (free public endpoint)."""
+    async with httpx.AsyncClient(timeout=10) as client:
+        target_symbols = ["BTCUSDT", "ETHUSDT", "SOLUSDT"]
+        results = []
+        for sym in target_symbols:
+            try:
+                resp = await client.get(
+                    "https://fapi.binance.com/futures/data/globalLongShortAccountRatio",
+                    params={"symbol": sym, "period": "1h", "limit": 24}
+                )
+                data = resp.json()
+                if isinstance(data, list) and data:
+                    latest = data[-1]
+                    long_pct = float(latest.get("longAccount", 0.5)) * 100
+                    short_pct = float(latest.get("shortAccount", 0.5)) * 100
+                    ratio = float(latest.get("longShortRatio", 1.0))
+                    results.append({
+                        "symbol": sym,
+                        "long_pct": round(long_pct, 1),
+                        "short_pct": round(short_pct, 1),
+                        "ratio": round(ratio, 3),
+                        "sentiment": "Bullish (More Longs)" if ratio > 1.2 else
+                                     "Bearish (More Shorts)" if ratio < 0.8 else "Balanced",
+                        "history": [{"timestamp": d["timestamp"], "ratio": float(d.get("longShortRatio", 1))}
+                                    for d in data[-12:]],
+                    })
+            except Exception:
+                continue
+        return results
+
+
+def compute_technical_indicators(closes: List[float]) -> dict:
+    """Compute RSI, MACD, Bollinger Bands, and ATR from raw close prices."""
+    import numpy as np
+    c = np.array(closes)
+    if len(c) < 30:
+        return {}
+
+    # RSI
+    deltas = np.diff(c)
+    gains = np.where(deltas > 0, deltas, 0.0)
+    losses = np.where(deltas < 0, -deltas, 0.0)
+    period = 14
+    avg_gain = np.mean(gains[:period])
+    avg_loss = np.mean(losses[:period])
+    for i in range(period, len(gains)):
+        avg_gain = (avg_gain * (period - 1) + gains[i]) / period
+        avg_loss = (avg_loss * (period - 1) + losses[i]) / period
+    rs = avg_gain / avg_loss if avg_loss > 0 else 0
+    rsi = 100 - (100 / (1 + rs))
+
+    # EMA helper
+    def ema(arr, p):
+        m = 2.0 / (p + 1)
+        e = [arr[0]]
+        for v in arr[1:]:
+            e.append((v - e[-1]) * m + e[-1])
+        return np.array(e)
+
+    # MACD
+    ema12 = ema(c, 12)
+    ema26 = ema(c, 26)
+    macd_line = ema12 - ema26
+    signal_line = ema(macd_line, 9)
+    macd_hist = macd_line[-1] - signal_line[-1]
+
+    # Bollinger Bands (20, 2)
+    sma20 = np.mean(c[-20:])
+    std20 = np.std(c[-20:])
+    bb_upper = sma20 + 2 * std20
+    bb_lower = sma20 - 2 * std20
+    bb_pct = (c[-1] - bb_lower) / (bb_upper - bb_lower) if bb_upper != bb_lower else 0.5
+
+    # Composite signal
+    signals = []
+    if rsi < 30:
+        signals.append("RSI Oversold (Buy)")
+    elif rsi > 70:
+        signals.append("RSI Overbought (Sell)")
+    if macd_hist > 0 and macd_line[-2] < signal_line[-2]:
+        signals.append("MACD Bullish Crossover")
+    elif macd_hist < 0 and macd_line[-2] > signal_line[-2]:
+        signals.append("MACD Bearish Crossover")
+    if c[-1] < bb_lower:
+        signals.append("Below Lower BB (Potential Reversal)")
+    elif c[-1] > bb_upper:
+        signals.append("Above Upper BB (Potential Reversal)")
+
+    return {
+        "rsi": round(float(rsi), 2),
+        "macd": round(float(macd_line[-1]), 6),
+        "macd_signal": round(float(signal_line[-1]), 6),
+        "macd_hist": round(float(macd_hist), 6),
+        "bb_upper": round(float(bb_upper), 6),
+        "bb_middle": round(float(sma20), 6),
+        "bb_lower": round(float(bb_lower), 6),
+        "bb_pct": round(float(bb_pct), 3),
+        "ema_12": round(float(ema12[-1]), 6),
+        "ema_26": round(float(ema26[-1]), 6),
+        "signals": signals,
+        "overall": "Bullish" if len([s for s in signals if "Buy" in s or "Bullish" in s]) > len([s for s in signals if "Sell" in s or "Bearish" in s]) else "Bearish" if signals else "Neutral",
+    }

@@ -1,6 +1,7 @@
 import React from 'react';
 
 const OrderBookPanel = () => {
+
   // Mock data
   const asks = Array.from({ length: 15 }).map((_, i) => ({
     price: 64231.0 + (i * 0.5),
