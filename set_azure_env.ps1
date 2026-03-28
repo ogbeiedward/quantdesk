@@ -11,7 +11,9 @@ az webapp config appsettings set --name $app --resource-group $rg --settings `
   SECRET_KEY="change-me-in-production-123!" `
   CORS_ORIGINS="*" `
   VITE_API_URL="https://$app.azurewebsites.net" `
+  WEBSITES_PORT="5173" `
   ALPHA_VANTAGE_API_KEY="YOUR_KEY_HERE"
+
 
 Write-Host "Environment variables set successfully."
 Write-Host "Please update ALPHA_VANTAGE_API_KEY with your real key if you have one."
