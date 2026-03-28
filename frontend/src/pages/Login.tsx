@@ -85,12 +85,10 @@ const Login = () => {
         </form>
 
         <div className="mt-6 text-center text-sm text-trading-muted">
-          Don't have an account?{' '}
-          <Link to="/register" className="text-trading-blue hover:text-blue-400">
-            Create account
-          </Link>
+          {/* Registration is locked down for institutional access */}
         </div>
       </div>
+
     </div>
   );
 };
