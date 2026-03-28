@@ -31,13 +31,11 @@ jobs:
           docker build -t quantdeskacrswe9918.azurecr.io/quantdesk-ui:latest ./frontend
           docker push quantdeskacrswe9918.azurecr.io/quantdesk-ui:latest
 
-      - name: Azure Login
-        uses: azure/login@v1
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
       - name: Deploy to Azure Web App
-        run: |
-          az webapp config container set --name quantdesk-app9918 --resource-group quantdesk-rg-sweden --multicontainer-config-type compose --multicontainer-config-file docker-compose.prod.yml
-          az webapp restart --name quantdesk-app9918 --resource-group quantdesk-rg-sweden
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: 'quantdesk-app9918'
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          images: 'quantdeskacrswe9918.azurecr.io/quantdesk-api:latest,quantdeskacrswe9918.azurecr.io/quantdesk-ui:latest'
+
 
