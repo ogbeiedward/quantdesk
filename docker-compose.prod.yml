@@ -38,11 +38,12 @@ services:
     image: quantdeskacrswe9918.azurecr.io/quantdesk-ui:latest
     container_name: quantdesk-ui
     ports:
-      - "5173:5173"
+      - "80:5173"
     depends_on:
       - backend
     environment:
       VITE_API_URL: ${VITE_API_URL}
+
 
 volumes:
   postgres_data:
