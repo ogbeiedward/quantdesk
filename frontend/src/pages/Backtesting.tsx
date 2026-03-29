@@ -51,9 +51,17 @@ const Backtesting: React.FC = () => {
       const br = await fetch(`${API_BASE_URL}/api/strategies/backtest`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ strategy_id: sid, symbol, timeframe, initial_capital: parseFloat(capital) }),
+        body: JSON.stringify({ 
+          strategy_id: sid, 
+          symbol, 
+          timeframe, 
+          start_date: '2023-01-01', 
+          end_date: new Date().toISOString().split('T')[0],
+          initial_capital: parseFloat(capital) 
+        }),
       });
       const bd = await br.json();
+
       if (bd.error) throw new Error(bd.error);
       setResults(bd);
     } catch (e: any) { setError(e.message || 'Backtest failed'); }

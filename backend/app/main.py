@@ -55,6 +55,8 @@ app.include_router(watchlist.router)
 app.include_router(strategies.router)
 app.include_router(admin.router)
 app.include_router(analytics.router)
+app.include_router(narrative.router)
+app.include_router(otc.router)
 
 
 # WebSocket endpoint
