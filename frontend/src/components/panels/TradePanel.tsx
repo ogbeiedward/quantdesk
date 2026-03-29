@@ -19,6 +19,14 @@ const TradePanel: React.FC = () => {
   const [balance, setBalance] = useState<number>(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastResult, setLastResult] = useState<{ success: boolean; message: string } | null>(null);
+  
+  // AI Copilot state
+  const [showCopilot, setShowCopilot] = useState(false);
+  const [copilotCapital, setCopilotCapital] = useState('10000');
+  const [copilotRisk, setCopilotRisk] = useState('Medium');
+  const [copilotAdvice, setCopilotAdvice] = useState<any>(null);
+  const [isCopilotLoading, setIsCopilotLoading] = useState(false);
+
   const wsRef = useRef<WebSocket | null>(null);
 
   // Fetch wallet balance
@@ -108,6 +116,34 @@ const TradePanel: React.FC = () => {
     }
   };
 
+  const handleGetAdvice = async () => {
+    setIsCopilotLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/advisor/signal`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ capital: parseFloat(copilotCapital), symbol, risk_tolerance: copilotRisk })
+      });
+      const data = await res.json();
+      setCopilotAdvice(data);
+    } catch {
+      setCopilotAdvice({ error: 'Failed to access AI Copilot' });
+    } finally {
+      setIsCopilotLoading(false);
+    }
+  };
+
+  const applyAdvice = () => {
+    if (!copilotAdvice || copilotAdvice.action === 'HOLD') return;
+    setSide(copilotAdvice.action as 'BUY' | 'SELL');
+    setOrderType('Limit');
+    setPrice(copilotAdvice.entry_price.toString());
+    const newQty = (copilotAdvice.recommended_size / copilotAdvice.entry_price).toFixed(6);
+    setQuantity(newQty);
+    setStopLoss(copilotAdvice.stop_loss.toString());
+    setTakeProfit(copilotAdvice.take_profit.toString());
+  };
+
   const symbolBase = symbol.replace('USDT', '');
 
   return (
@@ -121,9 +157,67 @@ const TradePanel: React.FC = () => {
         >
           {SYMBOLS.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
+        <button onClick={() => setShowCopilot(!showCopilot)} className={`px-2 py-0.5 rounded text-xs font-bold transition-all ${showCopilot ? 'bg-trading-blue text-white shadow shadow-trading-blue/30' : 'bg-trading-dark text-trading-blue border border-trading-blue/30 hover:bg-trading-blue/10'}`}>
+          🤖 AI Copilot
+        </button>
       </div>
 
       <div className="p-3 flex-1 overflow-y-auto flex flex-col gap-3 text-xs">
+        
+        {/* AI Copilot Panel */}
+        {showCopilot && (
+          <div className="bg-trading-blue/10 border border-trading-blue/30 rounded-lg p-3 flex flex-col gap-3">
+            <h3 className="text-trading-blue font-bold text-sm tracking-wide">🤖 Algorithmic Trading Copilot</h3>
+            <div className="flex gap-2">
+              <div className="flex-1 bg-trading-dark border border-trading-border rounded-lg flex items-center px-2 py-1.5">
+                <span className="text-trading-muted w-4">$</span>
+                <input type="number" className="flex-1 bg-transparent text-right text-white focus:outline-none font-mono text-xs"
+                  placeholder="Capital" value={copilotCapital} onChange={(e) => setCopilotCapital(e.target.value)} />
+              </div>
+              <select value={copilotRisk} onChange={(e) => setCopilotRisk(e.target.value)}
+                className="w-1/3 bg-trading-dark border border-trading-border rounded-lg px-2 py-1 text-xs text-white focus:outline-none">
+                <option value="Low">Low Risk</option>
+                <option value="Medium">Med Risk</option>
+                <option value="High">High Risk</option>
+              </select>
+            </div>
+            <button onClick={handleGetAdvice} disabled={isCopilotLoading || !copilotCapital}
+              className="w-full py-2 bg-trading-blue hover:bg-blue-600 text-white font-bold rounded flex items-center justify-center transition-all disabled:opacity-50">
+              {isCopilotLoading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Generate Trade Plan'}
+            </button>
+            
+            {copilotAdvice && !copilotAdvice.error && (
+              <div className="bg-trading-dark border border-trading-border p-3 rounded flex flex-col gap-2 mt-1 shadow-inner">
+                <div className="flex justify-between items-center">
+                  <span className={`px-2 py-1 rounded text-xs font-bold shadow ${
+                    copilotAdvice.action === 'BUY' ? 'bg-trading-green text-white shadow-trading-green/20' : 
+                    copilotAdvice.action === 'SELL' ? 'bg-trading-red text-white shadow-trading-red/20' : 'bg-trading-border text-trading-muted'
+                  }`}>
+                    {copilotAdvice.action}
+                  </span>
+                  <span className="text-[10px] text-trading-muted">Confidence: <span className="text-white font-semibold">{copilotAdvice.confidence}</span></span>
+                </div>
+                <p className="text-trading-muted text-[11px] leading-relaxed italic border-l-2 border-trading-blue/50 pl-2">
+                  "{copilotAdvice.reason}"
+                </p>
+                {copilotAdvice.action !== 'HOLD' && (
+                  <>
+                    <div className="grid grid-cols-2 gap-x-2 gap-y-1 mt-1">
+                      <div className="flex justify-between text-[10px]"><span className="text-trading-muted">Entry Price</span><span className="text-white font-mono font-bold">${copilotAdvice.entry_price.toLocaleString(undefined, {minimumFractionDigits: 2})}</span></div>
+                      <div className="flex justify-between text-[10px]"><span className="text-trading-muted">Rec. Size</span><span className="text-white font-mono font-bold">${copilotAdvice.recommended_size.toLocaleString(undefined, {minimumFractionDigits: 2})}</span></div>
+                      <div className="flex justify-between text-[10px]"><span className="text-trading-muted">Stop Loss</span><span className="text-trading-red font-mono">${copilotAdvice.stop_loss.toLocaleString(undefined, {minimumFractionDigits: 2})}</span></div>
+                      <div className="flex justify-between text-[10px]"><span className="text-trading-muted">Take Profit</span><span className="text-trading-green font-mono">${copilotAdvice.take_profit.toLocaleString(undefined, {minimumFractionDigits: 2})}</span></div>
+                    </div>
+                    <button onClick={applyAdvice} className="mt-2 text-[10px] w-full py-1.5 border border-trading-blue text-trading-blue hover:bg-trading-blue hover:text-white transition-all rounded font-bold uppercase tracking-widest">
+                      Apply Parameters
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+            {copilotAdvice && copilotAdvice.error && <div className="text-trading-red text-[10px] text-center">{copilotAdvice.error}</div>}
+          </div>
+        )}
         {/* Live price */}
         <div className="flex justify-between items-center">
           <span className="text-trading-muted">Market Price</span>

@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.database import init_db
-from app.routers import auth, users, wallet, trading, market, watchlist, strategies, admin, analytics, narrative, otc
+from app.routers import auth, users, wallet, trading, market, watchlist, strategies, admin, analytics, narrative, otc, advisor
 from app.services.websocket_service import manager, stream_binance_prices
 
 
@@ -57,6 +57,7 @@ app.include_router(admin.router)
 app.include_router(analytics.router)
 app.include_router(narrative.router)
 app.include_router(otc.router)
+app.include_router(advisor.router)
 
 
 # WebSocket endpoint
